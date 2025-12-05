@@ -1,6 +1,10 @@
+import 'dart:io';
+import 'package:excel/excel.dart' as excel;
 import 'package:flutter/material.dart';
 import 'package:myapp/data/report_generator.dart';
 import 'package:myapp/navigation_routes.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -14,6 +18,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   List<String> _financialYears = [];
   final ReportGenerator _reportGenerator = ReportGenerator();
   Future<List<Map<String, dynamic>>>? _reportDataFuture;
+  List<Map<String, dynamic>> _currentReportData = [];
 
   @override
   void initState() {
@@ -48,6 +53,52 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return years;
   }
 
+  Future<void> _exportToExcel() async {
+    if (_currentReportData.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No data to export.')));
+      return;
+    }
+
+    final excelFile = excel.Excel.createExcel();
+    final sheet = excelFile['Sheet1'];
+
+    // Add header row
+    sheet.appendRow([
+      excel.TextCellValue('S.No'),
+      excel.TextCellValue('Item Name'),
+      excel.TextCellValue('Receipt Qty'),
+      excel.TextCellValue('Issued Qty'),
+      excel.TextCellValue('Balance Qty'),
+    ]);
+
+    // Add data rows
+    for (var item in _currentReportData) {
+      sheet.appendRow([
+        excel.IntCellValue(item['s_no'] ?? 0),
+        excel.TextCellValue(item['item_name'] ?? ''),
+        excel.IntCellValue(item['receipt_qty'] ?? 0),
+        excel.IntCellValue(item['issued_qty'] ?? 0),
+        excel.IntCellValue(item['balance_qty'] ?? 0),
+      ]);
+    }
+
+    final directory = await getApplicationDocumentsDirectory();
+    final path =
+        '${directory.path}/report_${_selectedFy!.replaceAll(' ', '_')}.xlsx';
+    final file = File(path);
+    await file.writeAsBytes(excelFile.encode()!);
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Report saved to $path')));
+
+    OpenFilex.open(path);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -57,6 +108,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
         elevation: 0,
         backgroundColor: theme.canvasColor,
         foregroundColor: theme.textTheme.titleLarge?.color,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download_rounded),
+            onPressed: _exportToExcel,
+            tooltip: 'Export to Excel',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -72,6 +130,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  _currentReportData = [];
                   return const Center(
                     child: Text(
                       'No report data available for the selected year.',
@@ -79,7 +138,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                   );
                 }
-                return _buildReportTable(snapshot.data!, theme);
+                _currentReportData = snapshot.data!;
+                return _buildReportTable(_currentReportData, theme);
               },
             ),
           ),
@@ -97,10 +157,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
         borderRadius: BorderRadius.circular(12.0),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withAlpha((0.1 * 255).toInt()),
             blurRadius: 10,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: DropdownButtonHideUnderline(
@@ -150,9 +210,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
             columns: [
               DataColumn(label: Text('S.No', style: headerStyle)),
               DataColumn(label: Text('Item Name', style: headerStyle)),
-              DataColumn(label: Text('Receipt Qty', style: headerStyle), numeric: true),
-              DataColumn(label: Text('Issued Qty', style: headerStyle), numeric: true),
-              DataColumn(label: Text('Balance Qty', style: headerStyle), numeric: true),
+              DataColumn(
+                label: Text('Receipt Qty', style: headerStyle),
+                numeric: true,
+              ),
+              DataColumn(
+                label: Text('Issued Qty', style: headerStyle),
+                numeric: true,
+              ),
+              DataColumn(
+                label: Text('Balance Qty', style: headerStyle),
+                numeric: true,
+              ),
               DataColumn(label: Text('History', style: headerStyle)),
             ],
             rows: data.map((item) {
@@ -160,12 +229,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 cells: [
                   DataCell(Text(item['s_no'].toString(), style: cellStyle)),
                   DataCell(Text(item['item_name'], style: cellStyle)),
-                  DataCell(Text(item['receipt_qty'].toString(), style: cellStyle)),
-                  DataCell(Text(item['issued_qty'].toString(), style: cellStyle)),
-                  DataCell(Text(item['balance_qty'].toString(), style: cellStyle)),
+                  DataCell(
+                    Text(item['receipt_qty'].toString(), style: cellStyle),
+                  ),
+                  DataCell(
+                    Text(item['issued_qty'].toString(), style: cellStyle),
+                  ),
+                  DataCell(
+                    Text(item['balance_qty'].toString(), style: cellStyle),
+                  ),
                   DataCell(
                     IconButton(
-                      icon: const Icon(Icons.visibility, color: Colors.blueAccent),
+                      icon: const Icon(
+                        Icons.visibility,
+                        color: Colors.blueAccent,
+                      ),
                       onPressed: () {
                         Navigator.pushNamed(
                           context,
