@@ -6,50 +6,59 @@ class WelcomeGuide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.explore_outlined,
-              size: 80,
-              color: Theme.of(context).primaryColor,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Welcome to Your Inventory!',
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Get started by adding your first item.',
-              style: Theme.of(context).textTheme.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            _buildStep(
-              context,
-              icon: Icons.category,
-              title: '1. Create Categories',
-              subtitle: 'Group your items into categories like "Office Supplies" or "Electronics".',
-            ),
-            const SizedBox(height: 24),
-            _buildStep(
-              context,
-              icon: Icons.add_shopping_cart,
-              title: '2. Add Items',
-              subtitle: 'Add individual items to your inventory, assigning them to a category.',
-            ),
-            const SizedBox(height: 24),
-            _buildStep(
-              context,
-              icon: Icons.archive,
-              title: '3. Receive Stock',
-              subtitle: 'Log new stock as it arrives to keep your inventory up-to-date.',
-            ),
-          ],
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.explore_outlined,
+                size: 80,
+                color: Theme.of(context).primaryColor,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Welcome to Your Inventory!',
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Follow these steps to get started:',
+                style: Theme.of(context).textTheme.bodyLarge,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              _buildStep(
+                context,
+                icon: Icons.category,
+                title: '1. Create Categories',
+                subtitle: 'Group your items into categories like "Office Supplies" or "Electronics".',
+              ),
+              const SizedBox(height: 24),
+              _buildStep(
+                context,
+                icon: Icons.add_shopping_cart,
+                title: '2. Add Items',
+                subtitle: 'Add individual items to your inventory, assigning them to a category.',
+              ),
+              const SizedBox(height: 24),
+              _buildStep(
+                context,
+                icon: Icons.archive,
+                title: '3. Receive Stock',
+                subtitle: 'Log new stock as it arrives to keep your inventory up-to-date.',
+              ),
+              const SizedBox(height: 24),
+              _buildStep(
+                context,
+                icon: Icons.unarchive,
+                title: '4. Issue Stock',
+                subtitle: 'Track items that you issue to others to keep your balances accurate.',
+              ),
+            ],
+          ),
         ),
       ),
     );
