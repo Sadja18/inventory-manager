@@ -1,10 +1,14 @@
+// ignore_for_file: unused_import
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:myapp/data/models/issuance_record_model.dart';
 
 import 'package:myapp/data/models/inventory_item_model.dart';
+import 'package:myapp/data/models/stock_receipt_model.dart';
 import 'package:myapp/di/database_providers.dart';
 import 'package:myapp/navigation_routes.dart';
 import 'package:myapp/presentation/widgets/welcome_guide.dart';
@@ -20,9 +24,20 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   final searchController = TextEditingController();
   String searchQuery = '';
 
+  String _getCurrentFinancialYear() {
+    final now = DateTime.now();
+    int year = now.year;
+    if (now.month < 4) {
+      year--; // If before April, it's part of the previous financial year
+    }
+    return 'FY $year-${(year + 1).toString().substring(2)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final inventoryBox = ref.watch(inventoryItemBoxProvider);
+    final stockReceiptBox = ref.watch(stockReceiptBoxProvider);
+    final issuanceBox = ref.watch(issuanceRecordBoxProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -72,6 +87,19 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                   itemCount: filteredItems.length,
                   itemBuilder: (context, index) {
                     final item = filteredItems[index];
+                    final receipts = stockReceiptBox.values.where((r) => r.itemId == item.id).toList();
+                    final issues = issuanceBox.values.where((i) => i.itemId == item.id).toList();
+
+                    final totalReceipts = receipts.fold(0, (sum, r) => sum + r.quantity);
+                    final totalIssues = issues.fold(0, (sum, i) => sum + i.quantity);
+                    final balance = totalReceipts - totalIssues;
+
+                    DateTime? lastReceivedDate;
+                    if (receipts.isNotEmpty) {
+                      receipts.sort((a, b) => b.receiptDate.compareTo(a.receiptDate));
+                      lastReceivedDate = receipts.first.receiptDate;
+                    }
+
                     return Card(
                       elevation: 4, // Add some shadow
                       margin: const EdgeInsets.symmetric(
@@ -95,12 +123,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                _buildInfoColumn(
-                                    'Receipt', item.receiptQty.toString()),
-                                _buildInfoColumn(
-                                    'Issued', item.issuedQty.toString()),
-                                _buildInfoColumn(
-                                    'Balance', item.balanceQty.toString()),
+                                _buildInfoColumn('Receipt', totalReceipts.toString()),
+                                _buildInfoColumn('Issued', totalIssues.toString()),
+                                _buildInfoColumn('Balance', balance.toString()),
                               ],
                             ),
                             const SizedBox(height: 12),
@@ -110,8 +135,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  item.lastReceivedDate != null
-                                      ? 'Last Received: ${DateFormat.yMMMd().format(item.lastReceivedDate!)}'
+                                  lastReceivedDate != null
+                                      ? 'Last Received: ${DateFormat.yMMMd().format(lastReceivedDate)}'
                                       : 'Last Received: N/A',
                                   style: const TextStyle(color: Colors.grey),
                                 ),
@@ -125,7 +150,12 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                                         Navigator.pushNamed(
                                           context,
                                           AppRoutes.itemHistory,
-                                          arguments: item,
+                                          arguments: {
+                                            'itemId': item.id,
+                                            'itemName': item.name,
+                                            'financialYear':
+                                                _getCurrentFinancialYear(),
+                                          },
                                         );
                                       },
                                       tooltip: 'View History',

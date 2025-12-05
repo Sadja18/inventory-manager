@@ -7,6 +7,7 @@ import 'package:myapp/data/models/category_model.dart';
 import 'package:myapp/data/models/inventory_item_model.dart';
 import 'package:myapp/data/models/issuance_record_model.dart';
 import 'package:myapp/data/models/stock_receipt_model.dart';
+import 'package:myapp/data/seeder.dart';
 import 'package:myapp/di/theme_provider.dart';
 import 'package:myapp/navigation_routes.dart';
 import 'package:myapp/presentation/screens/add_item_screen.dart';
@@ -27,10 +28,8 @@ void main() async {
   Hive.registerAdapter(IssuanceRecordAdapter());
   Hive.registerAdapter(StockReceiptAdapter());
 
-  await Hive.openBox<Category>('categories');
-  await Hive.openBox<InventoryItem>('inventory_items');
-  await Hive.openBox<IssuanceRecord>('issuance_records');
-  await Hive.openBox<StockReceipt>('stock_receipts');
+  // TODO: Remove this line before production. This is for testing only.
+  await Seeder.seedData();
 
   runApp(const ProviderScope(child: MyApp()));
 }
@@ -44,10 +43,11 @@ class MyApp extends ConsumerWidget {
     const Color primarySeedColor = Colors.deepPurple;
 
     final TextTheme appTextTheme = TextTheme(
-      displayLarge:
-          GoogleFonts.oswald(fontSize: 57, fontWeight: FontWeight.bold),
-      titleLarge:
-          GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w500),
+      displayLarge: GoogleFonts.oswald(
+        fontSize: 57,
+        fontWeight: FontWeight.bold,
+      ),
+      titleLarge: GoogleFonts.roboto(fontSize: 22, fontWeight: FontWeight.w500),
       bodyMedium: GoogleFonts.openSans(fontSize: 14),
     );
 
@@ -61,18 +61,21 @@ class MyApp extends ConsumerWidget {
       appBarTheme: AppBarTheme(
         backgroundColor: primarySeedColor,
         foregroundColor: Colors.white,
-        titleTextStyle:
-            GoogleFonts.oswald(fontSize: 24, fontWeight: FontWeight.bold),
+        titleTextStyle: GoogleFonts.oswald(
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.white,
           backgroundColor: primarySeedColor,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          textStyle:
-              GoogleFonts.roboto(fontSize: 16, fontWeight: FontWeight.w500),
+          textStyle: GoogleFonts.roboto(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );
@@ -87,18 +90,21 @@ class MyApp extends ConsumerWidget {
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.grey[900],
         foregroundColor: Colors.white,
-        titleTextStyle:
-            GoogleFonts.oswald(fontSize: 24, fontWeight: FontWeight.bold),
+        titleTextStyle: GoogleFonts.oswald(
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.black,
           backgroundColor: primarySeedColor,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          textStyle:
-              GoogleFonts.roboto(fontSize: 16, fontWeight: FontWeight.w500),
+          textStyle: GoogleFonts.roboto(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );
@@ -116,13 +122,21 @@ class MyApp extends ConsumerWidget {
           case AppRoutes.issueItem:
             return MaterialPageRoute(builder: (_) => const IssueItemScreen());
           case AppRoutes.itemHistory:
-            final item = settings.arguments as InventoryItem;
+            final args = settings.arguments as Map<String, dynamic>;
+            final itemId = args['itemId'] as String;
+            final itemName = args['itemName'] as String;
+            final financialYear = args['financialYear'] as String;
             return MaterialPageRoute(
-              builder: (_) => ItemHistoryScreen(item: item),
+              builder: (_) => ItemHistoryScreen(
+                itemId: itemId,
+                itemName: itemName,
+                financialYear: financialYear,
+              ),
             );
           case AppRoutes.receiveStock:
             return MaterialPageRoute(
-                builder: (_) => const ReceiveStockScreen());
+              builder: (_) => const ReceiveStockScreen(),
+            );
           default:
             return MaterialPageRoute(builder: (_) => const MyHomePage());
         }
@@ -163,18 +177,14 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
         actions: [
           IconButton(
             icon: Icon(
-              themeMode == ThemeMode.dark
-                  ? Icons.light_mode
-                  : Icons.dark_mode,
+              themeMode == ThemeMode.dark ? Icons.light_mode : Icons.dark_mode,
             ),
             onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
             tooltip: 'Toggle Theme',
           ),
         ],
       ),
-      body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
-      ),
+      body: Center(child: _widgetOptions.elementAt(_selectedIndex)),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -191,7 +201,10 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Theme.of(context).primaryColor,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: Theme.of(
+          context,
+        ).colorScheme.onSurface.withAlpha(179),
         onTap: _onItemTapped,
       ),
     );

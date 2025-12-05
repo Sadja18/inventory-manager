@@ -15,8 +15,9 @@ dependencies:
   csv: ^6.0.0
   google_fonts: ^6.3.3
   uuid: ^4.5.2
-  intl: ^0.19.0
+  intl: ^0.20.2
   flutter_speed_dial: ^7.0.0
+  data_table_2: ^2.7.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

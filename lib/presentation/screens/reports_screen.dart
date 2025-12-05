@@ -1,142 +1,86 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:myapp/data/report_generator.dart';
+import 'package:myapp/navigation_routes.dart';
 
-import 'package:myapp/data/models/inventory_item_model.dart';
-import 'package:myapp/data/models/issuance_record_model.dart';
-import 'package:myapp/data/models/stock_receipt_model.dart';
-import 'package:myapp/di/database_providers.dart';
-
-class ReportsScreen extends ConsumerStatefulWidget {
+class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
   @override
-  ConsumerState<ReportsScreen> createState() => _ReportsScreenState();
+  State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
-class _ReportsScreenState extends ConsumerState<ReportsScreen> {
-  late String _selectedFinancialYear;
+class _ReportsScreenState extends State<ReportsScreen> {
+  String? _selectedFy;
   List<String> _financialYears = [];
+  final ReportGenerator _reportGenerator = ReportGenerator();
+  Future<List<Map<String, dynamic>>>? _reportDataFuture;
 
   @override
   void initState() {
     super.initState();
     _financialYears = _getFinancialYears();
-    _selectedFinancialYear = _getCurrentFinancialYear();
+    if (_financialYears.isNotEmpty) {
+      _selectedFy = _financialYears.first;
+      _loadReportData();
+    }
   }
 
-  String _getCurrentFinancialYear() {
-    final now = DateTime.now();
-    final year = now.year;
-    final month = now.month;
-    return month >= 4 ? '$year-${year + 1}' : '${year - 1}-$year';
+  void _loadReportData() {
+    if (_selectedFy != null) {
+      setState(() {
+        _reportDataFuture = _reportGenerator.getReportData(_selectedFy!);
+      });
+    }
   }
 
   List<String> _getFinancialYears() {
-    final currentYear = DateTime.now().year;
-    return List.generate(5, (index) {
-      final year = currentYear - index;
-      return '${year - 1}-$year';
-    });
+    final List<String> years = [];
+    final now = DateTime.now();
+    int currentYear = now.year;
+    if (now.month < 4) {
+      currentYear--;
+    }
+    for (int i = 0; i < 5; i++) {
+      years.add(
+        'FY ${currentYear - i}-${(currentYear - i + 1).toString().substring(2)}',
+      );
+    }
+    return years;
   }
 
   @override
   Widget build(BuildContext context) {
-    final issuanceRecords = ref
-        .watch(issuanceRecordBoxProvider)
-        .values
-        .toList();
-    final stockReceipts = ref.watch(stockReceiptBoxProvider).values.toList();
-    final inventoryItems = ref.watch(inventoryItemBoxProvider).values.toList();
-
-    final fyDates = _getFinancialYearDates(_selectedFinancialYear);
-
-    final receiptsInFy = stockReceipts
-        .where(
-          (r) =>
-              r.receiptDate.isAfter(fyDates.start) &&
-              r.receiptDate.isBefore(fyDates.end),
-        )
-        .toList();
-
-    final issuesInFy = issuanceRecords
-        .where(
-          (i) =>
-              i.issuanceDate.isAfter(fyDates.start) &&
-              i.issuanceDate.isBefore(fyDates.end),
-        )
-        .toList();
-
-    final totalReceipts = receiptsInFy.fold(
-      0,
-      (sum, item) => sum + item.quantity,
-    );
-    final totalIssues = issuesInFy.fold(0, (sum, item) => sum + item.quantity);
-
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Financial Year Reports')),
+      appBar: AppBar(
+        title: const Text('Financial Reports'),
+        elevation: 0,
+        backgroundColor: theme.canvasColor,
+        foregroundColor: theme.textTheme.titleLarge?.color,
+      ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: DropdownButtonFormField<String>(
-              initialValue: _selectedFinancialYear,
-              decoration: const InputDecoration(
-                labelText: 'Select Financial Year',
-                border: OutlineInputBorder(),
-              ),
-              items: _financialYears.map((fy) {
-                return DropdownMenuItem<String>(value: fy, child: Text(fy));
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedFinancialYear = value;
-                  });
-                }
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildSummaryCard(
-                  'Total Received',
-                  totalReceipts.toString(),
-                  Colors.green,
-                ),
-                _buildSummaryCard(
-                  'Total Issued',
-                  totalIssues.toString(),
-                  Colors.red,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
+          _buildFinancialYearDropdown(theme),
           Expanded(
-            child: DefaultTabController(
-              length: 2,
-              child: Column(
-                children: [
-                  const TabBar(
-                    tabs: [
-                      Tab(text: 'Stock Receipts'),
-                      Tab(text: 'Issuance Records'),
-                    ],
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _buildReceiptsList(receiptsInFy, inventoryItems),
-                        _buildIssuesList(issuesInFy, inventoryItems),
-                      ],
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _reportDataFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'No report data available for the selected year.',
+                      style: TextStyle(fontSize: 16),
                     ),
-                  ),
-                ],
-              ),
+                  );
+                }
+                return _buildReportTable(snapshot.data!, theme);
+              },
             ),
           ),
         ],
@@ -144,100 +88,104 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     );
   }
 
-  ({DateTime start, DateTime end}) _getFinancialYearDates(String fy) {
-    final years = fy.split('-');
-    final startYear = int.parse(years[0]);
-    final endYear = int.parse(years[1]);
-    return (
-      start: DateTime(startYear, 4, 1),
-      end: DateTime(endYear, 3, 31, 23, 59, 59),
-    );
-  }
-
-  Widget _buildSummaryCard(String title, String value, Color color) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ],
+  Widget _buildFinancialYearDropdown(ThemeData theme) {
+    return Container(
+      margin: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedFy,
+          isExpanded: true,
+          icon: Icon(Icons.calendar_today, color: theme.colorScheme.primary),
+          items: _financialYears.map((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Text(value, style: theme.textTheme.titleMedium),
+            );
+          }).toList(),
+          onChanged: (newValue) {
+            if (newValue != null) {
+              setState(() {
+                _selectedFy = newValue;
+                _loadReportData();
+              });
+            }
+          },
         ),
       ),
     );
   }
 
-  Widget _buildReceiptsList(
-    List<StockReceipt> receipts,
-    List<InventoryItem> items,
-  ) {
-    if (receipts.isEmpty) {
-      return const Center(child: Text('No stock receipts in this period.'));
-    }
-
-    return ListView.builder(
-      itemCount: receipts.length,
-      itemBuilder: (context, index) {
-        final receipt = receipts[index];
-        final item = items.firstWhere(
-          (i) => i.id == receipt.itemId,
-          orElse: () => InventoryItem(
-            id: 'unknown-item',
-            name: 'Unknown',
-            categoryId: '',
-          ),
-        );
-        return ListTile(
-          title: Text('${item.name} - Qty: ${receipt.quantity}'),
-          subtitle: Text(
-            'Date: ${DateFormat.yMMMd().format(receipt.receiptDate)} - ${receipt.remarks ?? ''}',
-          ),
-        );
-      },
+  Widget _buildReportTable(List<Map<String, dynamic>> data, ThemeData theme) {
+    final headerStyle = theme.textTheme.titleSmall?.copyWith(
+      fontWeight: FontWeight.bold,
+      color: theme.colorScheme.onSurface,
     );
-  }
+    final cellStyle = theme.textTheme.bodyMedium;
 
-  Widget _buildIssuesList(
-    List<IssuanceRecord> issues,
-    List<InventoryItem> items,
-  ) {
-    if (issues.isEmpty) {
-      return const Center(child: Text('No issuance records in this period.'));
-    }
-
-    return ListView.builder(
-      itemCount: issues.length,
-      itemBuilder: (context, index) {
-        final issue = issues[index];
-        final item = items.firstWhere(
-          (i) => i.id == issue.itemId,
-          orElse: () => InventoryItem(
-            id: 'unknown-item',
-            name: 'Unknown',
-            categoryId: '',
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16.0),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: theme.dividerColor),
           ),
-        );
-
-        return ListTile(
-          title: Text('${item.name} - Qty: ${issue.quantity}'),
-          subtitle: Text(
-            'Date: ${DateFormat.yMMMd().format(issue.issuanceDate)} - Issued to: ${issue.issuedTo}',
+          child: DataTable(
+            columnSpacing: 30.0,
+            headingRowColor: WidgetStateProperty.all(theme.splashColor),
+            columns: [
+              DataColumn(label: Text('S.No', style: headerStyle)),
+              DataColumn(label: Text('Item Name', style: headerStyle)),
+              DataColumn(label: Text('Receipt Qty', style: headerStyle), numeric: true),
+              DataColumn(label: Text('Issued Qty', style: headerStyle), numeric: true),
+              DataColumn(label: Text('Balance Qty', style: headerStyle), numeric: true),
+              DataColumn(label: Text('History', style: headerStyle)),
+            ],
+            rows: data.map((item) {
+              return DataRow(
+                cells: [
+                  DataCell(Text(item['s_no'].toString(), style: cellStyle)),
+                  DataCell(Text(item['item_name'], style: cellStyle)),
+                  DataCell(Text(item['receipt_qty'].toString(), style: cellStyle)),
+                  DataCell(Text(item['issued_qty'].toString(), style: cellStyle)),
+                  DataCell(Text(item['balance_qty'].toString(), style: cellStyle)),
+                  DataCell(
+                    IconButton(
+                      icon: const Icon(Icons.visibility, color: Colors.blueAccent),
+                      onPressed: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.itemHistory,
+                          arguments: {
+                            'itemId': item['item_id'],
+                            'itemName': item['item_name'],
+                            'financialYear': _selectedFy!,
+                          },
+                        );
+                      },
+                      tooltip: 'View Item History',
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
