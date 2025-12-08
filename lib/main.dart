@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -28,8 +29,9 @@ void main() async {
   Hive.registerAdapter(IssuanceRecordAdapter());
   Hive.registerAdapter(StockReceiptAdapter());
 
-  // TODO: Remove this line before production. This is for testing only.
-  await Seeder.seedData();
+  if (kDebugMode) {
+    await Seeder.seedData();
+  }
 
   runApp(const ProviderScope(child: MyApp()));
 }

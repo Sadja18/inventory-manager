@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:excel/excel.dart' as excel;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:myapp/data/report_generator.dart';
+// ignore: unused_import
 import 'package:myapp/navigation_routes.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
@@ -84,19 +86,44 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ]);
     }
 
-    final directory = await getApplicationDocumentsDirectory();
-    final path =
-        '${directory.path}/report_${_selectedFy!.replaceAll(' ', '_')}.xlsx';
+    // --- Platform-aware save path ---
+    Directory? dir;
+    final baseName = 'report_${_selectedFy!.replaceAll(' ', '_')}';
+    final fileName = '$baseName.xlsx';
+    bool isAndroid = Platform.isAndroid;
+    bool isIOS = Platform.isIOS;
+
+    if (isAndroid) {
+      dir = await getDownloadsDirectory();
+      dir ??= await getApplicationDocumentsDirectory(); // fallback
+    } else if (isIOS) {
+      dir = await getTemporaryDirectory();
+    } else {
+      dir = await getApplicationDocumentsDirectory();
+    }
+
+    final path = '${dir.path}/$fileName';
     final file = File(path);
     await file.writeAsBytes(excelFile.encode()!);
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Report saved to $path')));
-
-    OpenFilex.open(path);
+    if (isAndroid) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Saved to: Downloads/$fileName')));
+      await OpenFilex.open(path);
+    } else if (isIOS) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Opening export...')));
+      await OpenFilex.open(path);
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Saved to: $fileName')));
+      await OpenFilex.open(path);
+    }
   }
 
   @override
@@ -139,6 +166,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   );
                 }
                 _currentReportData = snapshot.data!;
+
+                if (kDebugMode) {
+                  print("The data is ${_currentReportData[0]}");
+                }
                 return _buildReportTable(_currentReportData, theme);
               },
             ),
