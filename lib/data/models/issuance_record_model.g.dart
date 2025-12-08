@@ -22,13 +22,14 @@ class IssuanceRecordAdapter extends TypeAdapter<IssuanceRecord> {
       issuedTo: fields[2] as String,
       issuanceDate: fields[3] as DateTime,
       quantity: fields[4] as int,
+      remarks: fields[5] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, IssuanceRecord obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -38,7 +39,9 @@ class IssuanceRecordAdapter extends TypeAdapter<IssuanceRecord> {
       ..writeByte(3)
       ..write(obj.issuanceDate)
       ..writeByte(4)
-      ..write(obj.quantity);
+      ..write(obj.quantity)
+      ..writeByte(5)
+      ..write(obj.remarks);
   }
 
   @override

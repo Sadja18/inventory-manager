@@ -103,10 +103,26 @@ class _ItemHistoryScreenState extends ConsumerState<ItemHistoryScreen>
     final excelFile = excel.Excel.createExcel();
     final sheet = excelFile['Sheet1'];
 
+    // sheet.appendRow([
+    //   excel.TextCellValue('Date'),
+    //   excel.TextCellValue('Issued To'),
+    //   excel.TextCellValue('Quantity Issued'),
+    // ]);
+
+    // for (final issuance in fullData) {
+    //   sheet.appendRow([
+    //     excel.TextCellValue(
+    //       DateFormat('yyyy-MM-dd').format(issuance.issuanceDate),
+    //     ),
+    //     excel.TextCellValue(issuance.issuedTo),
+    //     excel.IntCellValue(issuance.quantity),
+    //   ]);
+    // }
     sheet.appendRow([
       excel.TextCellValue('Date'),
       excel.TextCellValue('Issued To'),
       excel.TextCellValue('Quantity Issued'),
+      excel.TextCellValue('Remarks'), // 👈 new
     ]);
 
     for (final issuance in fullData) {
@@ -116,6 +132,7 @@ class _ItemHistoryScreenState extends ConsumerState<ItemHistoryScreen>
         ),
         excel.TextCellValue(issuance.issuedTo),
         excel.IntCellValue(issuance.quantity),
+        excel.TextCellValue(issuance.remarks ?? ''), // 👈 new
       ]);
     }
 
@@ -252,8 +269,17 @@ class _ItemHistoryScreenState extends ConsumerState<ItemHistoryScreen>
               ),
               Text(issuance.issuedTo, style: textTheme.bodyMedium),
               Text(issuance.quantity.toString(), style: textTheme.bodyMedium),
+              Text(
+                issuance.remarks ?? '-',
+                style: textTheme.bodyMedium,
+              ), // 👈 new column
             ],
-            headers: const ['Date', 'Issued To', 'Qty Issued'],
+            headers: const [
+              'Date',
+              'Issued To',
+              'Qty Issued',
+              'Remarks',
+            ], // 👈 new header
             onPageChanged: (page) =>
                 setState(() => _issuanceCurrentPage = page),
             currentPage: _issuanceCurrentPage,
